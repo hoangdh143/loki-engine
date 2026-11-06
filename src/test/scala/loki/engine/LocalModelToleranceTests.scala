@@ -57,6 +57,21 @@ object LocalModelToleranceTests {
 
   def spec = suite("LocalModelToleranceTests")(
 
+    // --- Tool arguments far longer than a regex can walk ----------------------
+
+    test("A very long tool argument is read whole instead of overflowing the stack") {
+      val line = """He said \"hello\" \\ caf\u00e9\n"""
+      val args = s"""{"text": "${line * 40000}", "count": 3}"""
+      val fields = JsonScan.stringFields(args).toMap
+      val expected = "He said \"hello\" \\ caf\u00e9\n" * 40000
+      assert(fields.get("text"))(Assertion.isSome(Assertion.equalTo(expected)))
+    },
+
+    test("Keys inside a string value are not read as fields, and an unclosed value ends the scan") {
+      val fields = JsonScan.stringFields("""{"a": "x \"b\": \"y\" z", "c": "d", "e": "never closed""")
+      assert(fields)(Assertion.equalTo(List("a" -> "x \"b\": \"y\" z", "c" -> "d")))
+    },
+
     // --- Recovering tool calls the API layer left as text --------------------
 
     test("Hermes-style tool call written as text is recovered") {

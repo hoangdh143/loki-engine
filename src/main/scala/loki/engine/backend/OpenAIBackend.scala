@@ -227,8 +227,7 @@ class OpenAIBackend(
 
   private def parseSimpleObject(json: String): Map[String, Any] = {
     val result = mutable.Map[String, Any]()
-    val strPat = """"(\w+)"\s*:\s*"((?:[^"\\]|\\.)*)"""".r
-    strPat.findAllMatchIn(json).foreach(m => result.put(m.group(1), m.group(2).replace("\\n", "\n").replace("\\\"", "\"")))
+    JsonScan.stringFields(json).foreach { case (key, value) => result.put(key, value) }
     val numPat = """"(\w+)"\s*:\s*([\d.]+)""".r
     numPat.findAllMatchIn(json).foreach(m => if (!result.contains(m.group(1))) result.put(m.group(1), m.group(2).toDoubleOption.getOrElse(0.0)))
     val boolPat = """"(\w+)"\s*:\s*(true|false)""".r

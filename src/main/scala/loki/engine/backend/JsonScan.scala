@@ -76,6 +76,34 @@ object JsonScan {
     }
   }
 
+  private val stringKey = """"(\w+)"\s*:\s*"""".r
+
+  /** Index of the quote closing the string whose content starts at `i`, or -1. */
+  @tailrec private def stringEnd(s: String, i: Int): Int =
+    if (i >= s.length) -1
+    else if (s(i) == '\\') stringEnd(s, i + 2)
+    else if (s(i) == '"') i
+    else stringEnd(s, i + 1)
+
+  /** Every `"key": "value"` pair in the text, with the values decoded. Values are walked by
+    * index because a regex over them recurses per character: a long tool argument overflows
+    * the stack, which is fatal to the whole JVM. */
+  def stringFields(json: String): List[(String, String)] = {
+    val keys = stringKey.pattern.matcher(json)
+
+    @tailrec def loop(from: Int, acc: List[(String, String)]): List[(String, String)] =
+      if (!keys.find(from)) acc.reverse
+      else {
+        val key = keys.group(1)
+        val start = keys.end()
+        val end = stringEnd(json, start)
+        if (end < 0) acc.reverse
+        else loop(end + 1, decodeString(json, start, false, Nil).fold(acc)(value => (key, value) :: acc))
+      }
+
+    loop(0, Nil)
+  }
+
   @tailrec private def decodeString(json: String, i: Int, escaped: Boolean, acc: List[Char]): Option[String] =
     if (i >= json.length) None
     else if (escaped) {
